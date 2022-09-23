@@ -4,7 +4,7 @@ This core is a RW-FPGA dev team project implemented by Ricardo Martinez (KYP) in
 A port to Altera has been made, covering the boards, MiST, MiSTica, SiDi and MiSTer by KYP and rampa069.
 This core has been designed from scratch.
 
-Port to MiSTer by alaswx, CAS tape support by Flandango.
+Port to MiSTer by alanswx, CAS tape support by Flandango.
 
 ## Background
 
