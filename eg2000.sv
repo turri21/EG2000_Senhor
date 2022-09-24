@@ -206,7 +206,7 @@ localparam CONF_STR = {
 	"d0T1,Play/Pause;",
 	"D1T2,Rewind;",
 	"D1T3,Eject;",
-	"O[5:6],Tape Volume,Muted,Low,High;",
+	"O[6:5],Tape Volume,Muted,Low,High;",
 	"h2T4,Paste Filename;",
 	"-;",
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
