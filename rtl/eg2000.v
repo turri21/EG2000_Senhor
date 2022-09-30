@@ -33,7 +33,12 @@ module eg2000
 `endif
 
 `ifdef MISTER
-    input  wire [10:0] ps2_key, // [7:0] - scancode,
+	input  wire [10:0] ps2_key, // [7:0] - scancode,
+	input  wire [31:0] joy0,
+	input  wire [31:0] joy1,
+	input  wire [15:0] joya0,
+	input  wire [15:0] joya1,
+	input  wire [ 1:0] joyAD, // Select Analog or DPAD for Joysticks [0] = Player 1, [1] = Player 2
 `else
     input  wire [ 1:0] ps2,
 `endif
@@ -44,8 +49,6 @@ module eg2000
 	output wire        ramWe,
 	inout  wire [ 7:0] ramDQ,
 	output wire [20:0] ramA,
-`elsif USE_BRAM
-	output wire        filler,
 `elsif USE_SDRAM
 	output wire        ramCk,
 	output wire        ramCe,
@@ -140,9 +143,6 @@ wire crtcRs = a[0];
 wire crtcRw = wr;
 wire m1;
 
-assign ior = rd | iorq | (~m1);
-assign iow = wr | iorq;
-
 wire [ 7:0] crtcQ;
 
 wire [13:0] crtcMa;
@@ -185,32 +185,74 @@ always @(posedge clock) if(pe1M1) cur <= { cur[0], cursor };
 wire bdir = (!wr && !ioF8) || (!wr && !ioF9);
 wire bc1  = (!wr && !ioF8) || (!rd && !ioF9);
 
-wire [ 7:0] psgA;
-wire [ 7:0] psgB;
-wire [ 7:0] psgC;
+wire [11:0] psgA;
+wire [11:0] psgB;
+wire [11:0] psgC;
 wire [ 7:0] psgQ;
 
-jt49_bus Psg
+
+psg Psg
 (
-	.clk    (clock  ),
-	.clk_en (pe2M2  ),
-	.rst_n  (reset  ),
-	.bdir   (bdir   ),
-	.bc1    (bc1    ),
-	.din    (q      ),
-	.dout   (psgQ   ),
-	.A      (psgA   ),
-	.B      (psgB   ),
-	.C      (psgC   ),
-	.sel    (1'b0   )
+	.clock     (clock),
+	.sel       (1'b1 ),
+	.ce        (pe2M2),
+
+	.reset     (reset),
+	.bdir      (bdir ),
+	.bc1       (bc1  ),
+	.d         (q    ),
+	.q         (psgQ ),
+
+	.a         (psgA ),
+	.b         (psgB ),
+	.c         (psgC ),
+	.mix       (mix  ),
+
+	.ioad      (ioad ),
+	.ioaq      (ioaq ),
+
+	.iobd      (iobd ),
+	.iobq      (iobq )
 );
+wire[13:0] mix;
+
+wire[ 7:0] ioad;
+wire[ 7:0] ioaq;
+
+wire[ 7:0] iobd;
+wire[ 7:0] iobq;
+
+
+`ifdef MISTER
+
+//JOYSTICKS
+
+eg2000_joystick joysticks
+(
+	.clk    (clock    ),
+	
+	.p1_dpad(joyAD[0] ),
+	.p2_dpad(joyAD[1] ),
+	
+	.portA_i(ioaq[5:0]),
+	.portB_o(iobd     ),
+	
+	.ps2_key(ps2_key  ),
+	
+	.joy0   (joy0     ),
+	.joy1   (joy1     ),
+	.joya0  (joya0    ),
+	.joya1  (joya1    )
+);
+
+`endif
 
 //-------------------------------------------------------------------------------------------------
 
 	
-wire [ 9:0] dacD = { 2'b00, psgA } + { 2'b00, psgB } + { 2'b00, psgC } + { 1'b0, |tape_vol ? (tape_vol == 2'd1 ? {1'b0,tape} : {tape,1'b0} ): 2'b00, 7'b0 };
-
 `ifdef USE_DAC
+wire [ 11:0] dacD = psgA + psgB + psgC  + { 1'b0, |tape_vol ? (tape_vol == 2'd1 ? {1'b0,tape} : {tape,1'b0} ): 2'b00, 9'b0 };
+
 dac #(.MSBI(9)) Dac
 (
 	.clock  (clock  ),
@@ -219,7 +261,7 @@ dac #(.MSBI(9)) Dac
 	.q      (sound  )
 );
 `else
-assign audio_l = {dacD,6'b0};
+assign audio_l = {mix + { 1'b0, |tape_vol ? (tape_vol == 2'd1 ? {1'b0,tape} : {tape,1'b0} ): 2'b00, 9'b0 },2'b0};
 assign audio_r = audio_l;
 `endif
 
@@ -292,8 +334,6 @@ memory Memory
 	.ramWe  (ramWe  ),
 	.ramDQ  (ramDQ  ),
 	.ramA   (ramA   )
-`elsif USE_BRAM 
-	.filler (       )	
 `elsif USE_SDRAM
 	.ramCk  (ramCk  ),
 	.ramCe  (ramCe  ),
@@ -323,24 +363,6 @@ assign d
 //-------------------------------------------------------------------------------------------------
 
 
-wire [15:0]      cpua;
-wire [ 7:0]      cpudo;
-wire [ 7:0]      cpudi;
-wire             cpuwr;
-wire             cpurd;
-wire             cpumreq;
-wire             cpuiorq;
-wire             cpum1;
-reg              cpuclk;
-reg              cpuclk_r;
-reg              clk_25ms;
-
-wire             ior;
-wire             iow;
-reg              widemode;
-
-//-------------------------------------------------------------------------------------------------
-
 endmodule
 
-//-------------------------------------------------------------------------------------------------
+////-------------------------------------------------------------------------------------------------

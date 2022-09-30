@@ -197,6 +197,7 @@ if(received)
 			8'h29: key[6][7] <= pressed; // SPACE
 
 			8'h12: key[7][0] <= pressed; // Shift
+			8'h59: key[7][0] <= pressed; // Shift (Right Shift)
 			8'h1F: key[7][1] <= pressed; // ModSel (windows)
 			// ------------------------; // 
 			8'h0D: key[7][3] <= pressed; // rpt (run/stop - tab)

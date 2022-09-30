@@ -27,13 +27,10 @@ module memory
 	output wire[ 7:0] q,
 	input  wire[15:0] a,
 
-	input  wire[ 7:0] keyQ,
 `ifdef ZX1
 	output wire       ramWe,
 	inout  wire[ 7:0] ramDQ,
-	output wire[20:0] ramA
-`elsif USE_BRAM
-   output wire       filler
+	output wire[20:0] ramA,
 `elsif USE_SDRAM 
 	output wire       ramCk,
 	output wire       ramCe,
@@ -44,8 +41,10 @@ module memory
 	output wire[ 1:0] ramDqm,
 	inout  wire[15:0] ramDQ,
 	output wire[ 1:0] ramBA,
-	output wire[12:0] ramA	
+	output wire[12:0] ramA,
 `endif
+	input  wire[ 7:0] keyQ
+
 );
 //-------------------------------------------------------------------------------------------------
 

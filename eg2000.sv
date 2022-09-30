@@ -195,26 +195,33 @@ assign BUTTONS = 0;
 
 //////////////////////////////////////////////////////////////////
 
-wire [1:0] ar = status[122:121];
+wire [1:0] ar = status[12:11];
 
 `include "build_id.v" 
 localparam CONF_STR = {
 	"eg2000;;",
 	"-;",
 	"F1,CAS,Load Cassette;",
+	"H2-;",
+	"h3-,-Basic Tape Loaded-;",
+	"h4-,-System Tape Loaded-;",
+	"h5-,-Data Tape Loaded-;",
 	"-;",
-	"d0T1,Play/Pause;",
-	"D1T2,Rewind;",
-	"D1T3,Eject;",
+	"h0d0T1,Play/Pause;",
+	"h0D1T2,Rewind;",
+	"h0D1T3,Eject;",
+	"h4R4,Paste Filename;",
+	"-;",
 	"O[6:5],Tape Volume,Muted,Low,High;",
-	"h2T4,Paste Filename;",
-	"-;",
-	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
-    "OAC,Scandoubler Fx,None,CRT 25%,CRT 50%,CRT 75%,HQ2x;",
-	"OFG,Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
+	"O[7],Joystick 1,Analog,DPAD;",
+	"O[8],Joystick 2,Analog,DPAD;",
+	"P1,Video Settings;",
+	"P1O[12:11],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
+   "P1O[14:13],Scandoubler,Off,On,HQ2x;",
+	"P1O[16:15],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
     "-;",
-	"T[0],Reset;",
-	"R[0],Reset and close OSD;",
+	"R[0],Reset;",
+	"J,*,#,0,1,2,3,4,5,6,7,8,9;",
 	"V,v",`BUILD_DATE 
 };
 
@@ -222,8 +229,11 @@ wire [21:0] gamma_bus;
 wire 		   forced_scandoubler;
 wire [1:0] 	buttons;
 wire [127:0] status;
-wire [15:0] status_mask = {13'd0, |system_tape_filename, tape_status[1] || ~tape_status[0], tape_status[0]};
+wire [15:0] status_mask = {10'd0, tape_type == 2'd3, tape_type == 2'd2, tape_type == 2'd1, |tape_type, tape_status[1] || ~tape_status[0], tape_status[0]};
 wire [10:0] ps2_key;
+
+wire [31:0] joy0, joy1;
+wire [15:0] joya0, joya1;
 
 wire        ioctl_download;
 wire [7:0] 	ioctl_index;
@@ -245,6 +255,11 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.status			(status			),
 	.status_menumask(status_mask),
 	.ps2_key		(ps2_key		),
+
+	.joystick_0(joy0),
+	.joystick_1(joy1),
+	.joystick_l_analog_0(joya0),
+	.joystick_l_analog_1(joya1),
 
 	//ioctl
 	.ioctl_download	(ioctl_download	),
@@ -269,8 +284,6 @@ pll pll
 );
 
 //////////////////////////////////////////////////////////////////
-
-wire [1:0] col = status[4:3];
 
 wire HBlank;
 wire HSync;
@@ -301,44 +314,53 @@ eg2000 eg2000
 (
 	.clock  	(clk_sys		),
 	.power  	(power  		),
-	.hsync  	(HSync			),
-	.vsync  	(VSync			),
-	.hblank  	(HBlank			),
-	.vblank  	(VBlank			),
+	.hsync  	(HSync		),
+	.vsync  	(VSync		),
+	.hblank 	(HBlank		),
+	.vblank 	(VBlank		),
 
 	.ce_pix 	(ce_pix 		),
 	.pixel  	(pixel  		),
 	.color  	(color  		),
-	.crtcDe 	(crtcDe_tmp		),
+	.crtcDe 	(crtcDe_tmp	),
 	
-	.tape   	(tape_status[1] ? tape2 : ~tape_in		),
+	.tape   	(tape_status[1] ? tape2 : ~tape_in	),
 	.audio_l	(AUDIO_L		),
 	.audio_r	(AUDIO_R		),
 	.led    	(led    		),
-	.ps2_key    (paste_filename ? ps2_sim : ps2_key    	),
+	.ps2_key (paste_filename ? ps2_sim : ps2_key ),
+
+	.joy0    (joy0),
+	.joy1    (joy1),
+	.joya0   (joya0),
+	.joya1   (joya1),
+	.joyAD   (status[8:7]),
 
 	.tape_vol  (status[6:5])
 
 );
 
 reg tape2;
+reg  [1:0] tape_type;
 reg [12:0] tape_status;
 reg [47:0] system_tape_filename;
+
 eg2000_cas_player cas_player
 (
     .clk                 (clk_sys          ),
 	 .reset               (~power           ),
     .ioctl_download 	    (ioctl_download && ioctl_index == 1),
 	 .ioctl_wait          (ioctl_wait       ),
-    .ioctl_wr            (ioctl_wr		   ),
+    .ioctl_wr            (ioctl_wr         ),
     .ioctl_addr          (ioctl_addr[16:0] ),
     .ioctl_dout          (ioctl_data       ),
 	 .play                (status[1]        ),
 	 .rewind              (status[2]        ),
 	 .eject               (status[3]        ),
 	 .status              (tape_status      ), //This also exposes a tape counter that can be used for something like an overlay
+	 .tape_type           (tape_type        ), // 0 - No tape loaded, 1 - Basic, 2 - System, 3 - Data
 	 .system_tape_filename(system_tape_filename),
-	 .tape                (tape2)
+	 .tape                (tape2            )
 );
 	
 reg[17:0] palette[15:0];
@@ -366,8 +388,7 @@ wire [17:0] rgbQ = pixel ? palette[color] : 1'd0;
 assign CLK_VIDEO = clk_sys;
 
 wire ce_pix_out;
-wire scandoubler = scale || forced_scandoubler;
-wire [2:0] scale = status[12:10];
+wire scandoubler = status[14:13] || forced_scandoubler;
 wire crtcDe_tmp;
 
 reg  [26:0] act_cnt;
@@ -397,7 +418,7 @@ video_mixer #(.LINE_LENGTH(640)) video_mixer
 	.R         		({rgbQ[17:12],2'b0}),
 	.G         		({rgbQ[11: 6],2'b0}),
 	.B         		({rgbQ[ 5: 0],2'b0}),
-	.hq2x      		(scale[2])
+	.hq2x      		(status[14])
 );
 
 video_freak video_freak
