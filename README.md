@@ -1,3 +1,8 @@
+-=(EG2000_Senhor notes)=-
+
+Tested: Working Video 720p, 1080p & Sound
+
+___
 # EACA EG2000 Colour Genie FPGA implementation for MiSTer
 
 This core is a RW-FPGA dev team project implemented by Ricardo Martinez (KYP) initially in ZXUno.
